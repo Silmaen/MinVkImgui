@@ -16,7 +16,7 @@ namespace mvi::core::views {
 /**
  * @brief Class FirstView.
  */
-class FirstView : public View {
+class FirstView final : public View {
 public:
 	FirstView() = delete;
 	/**
@@ -36,6 +36,11 @@ public:
 	 * @brief The update function to implement in derived classes.
 	 */
 	void onUpdate() override;
+	/**
+	 * @brief Get the view name.
+	 * @return The view name.
+	 */
+	[[nodiscard]] auto getName() const -> std::string override { return "first_view"; }
 
 private:
 	/// A simple counter.
@@ -43,11 +48,11 @@ private:
 	/// A float value.
 	float m_float = 0.0f;
 	/// Reference to external demo window visibility flag.
-	bool& m_show_demo_window;
+	bool& m_showDemoWindow;
 	/// Reference to external another window visibility flag.
-	bool& m_show_another_window;
+	bool& m_showAnotherWindow;
 	/// Reference to external clear color.
-	std::array<float, 4>& m_clear_color;
+	std::array<float, 4>& m_clearColor;
 };
 
 }// namespace mvi::core::views

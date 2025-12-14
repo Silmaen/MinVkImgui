@@ -9,6 +9,7 @@
 #pragma once
 
 #include "MainWindow.h"
+#include "actions/Action.h"
 #include "views/View.h"
 
 #include <array>
@@ -20,7 +21,7 @@ namespace mvi::core {
 /**
  * @brief Class Application.
  */
-class Application {
+class Application final {
 public:
 	/**
 	 * @brief Default constructor.
@@ -29,7 +30,7 @@ public:
 	/**
 	 * @brief Default destructor.
 	 */
-	virtual ~Application();
+	~Application();
 
 	Application(const Application&) = delete;
 	Application(Application&&) = delete;
@@ -68,6 +69,9 @@ public:
 		return m_state;
 	}
 
+	/**
+	 * @brief Run the application.
+	 */
 	void run();
 
 	/**
@@ -76,14 +80,70 @@ public:
 	 */
 	void reportError(const std::string& iMessage);
 
+	/**
+	 * @brief Set the application to waiting state.
+	 */
 	void setWaiting() {
 		if (m_state == State::Running)
 			m_state = State::Waiting;
 	}
+	/**
+	 * @brief Set the application to running state.
+	 */
 	void setRunning() {
 		if (m_state == State::Waiting)
 			m_state = State::Running;
 	}
+
+	/**
+	 * @brief Request application close.
+	 */
+	void requestClose();
+
+	/**
+	 * @brief Get a view by name.
+	 * @param iName The view name.
+	 * @return The view pointer or nullptr if not found.
+	 */
+	[[nodiscard]] auto getView(const std::string& iName) const -> std::shared_ptr<views::View> {
+		for (const auto& view: m_views) {
+			if (view->getName() == iName)
+				return view;
+		}
+		return nullptr;
+	}
+
+	/**
+	 * @brief Get an action by name.
+	 * @param iName The action name.
+	 * @return The action pointer or nullptr if not found.
+	 */
+	[[nodiscard]] auto getAction(const std::string& iName) const -> std::shared_ptr<actions::Action> {
+		for (const auto& action: m_actions) {
+			if (action->getName() == iName)
+				return action;
+		}
+		return nullptr;
+	}
+
+	/**
+	 * @brief Event handler.
+	 * @param[in,out] ioEvent The Event to react.
+	 */
+	void onEvent(event::Event& ioEvent);
+
+	/**
+	 * @brief Keyboard pressed check.
+	 * @param[in] iKeycode The Key to check.
+	 * @return True if pressed.
+	 */
+	[[nodiscard]] auto isKeyPressed(const KeyCode& iKeycode) const -> bool;
+
+	/**
+	 * @brief Get the current modifiers.
+	 * @return The current modifiers.
+	 */
+	[[nodiscard]] auto getModifiers() const -> Modifiers;
 
 private:
 	/// The application Instance.
@@ -94,8 +154,10 @@ private:
 	MainWindow m_mainWindow;
 	//// The views list.
 	std::list<std::shared_ptr<views::View>> m_views;
+	/// The actions list.
+	std::list<std::shared_ptr<actions::Action>> m_actions;
 	/// The clear color.
-	std::array<float, 4> m_clear_color = {0.45f, 0.55f, 0.60f, 1.00f};
+	std::array<float, 4> m_clearColor = {0.45f, 0.55f, 0.60f, 1.00f};
 };
 
 auto createApplication(int iArgc, char* iArgv[]) -> std::shared_ptr<Application>;

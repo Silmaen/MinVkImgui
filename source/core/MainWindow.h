@@ -10,15 +10,21 @@
 
 #include "Theme.h"
 
+#include "core/math/vectors.h"
+#include "event/Event.h"
+#include "event/KeyCodes.h"
 #include <array>
+#include <functional>
 
 namespace mvi::core {
 
 /**
  * @brief Class MainWindow.
  */
-class MainWindow {
+class MainWindow final {
 public:
+	/// Call back function's type.
+	using event_callback = std::function<void(event::Event&)>;
 	/**
 	 * @brief Default constructor.
 	 */
@@ -26,7 +32,7 @@ public:
 	/**
 	 * @brief Default destructor.
 	 */
-	virtual ~MainWindow();
+	~MainWindow();
 
 	MainWindow(const MainWindow&) = delete;
 	MainWindow(MainWindow&&) = delete;
@@ -65,6 +71,31 @@ public:
 	 */
 	void setTheme(const Theme& iTheme);
 
+	/**
+	 * @brief Define the Event Callback function.
+	 * @param iCallback The new callback function.
+	 */
+	void setEventCallback(const event_callback& iCallback) { m_windowData.eventCallback = iCallback; }
+
+	/**
+	 * @brief Check if a key is pressed.
+	 * @param iKeycode The key code to check.
+	 * @return True if the key is pressed.
+	 */
+	[[nodiscard]] auto isKeyPressed(const KeyCode& iKeycode) const -> bool;
+
+	/**
+	 * @brief Get the current modifiers.
+	 * @return The current modifiers.
+	 */
+	[[nodiscard]] auto getModifiers() const -> Modifiers;
+
+	/**
+	 * @brief Event handler.
+	 * @param[in,out] ioEvent The Event to react.
+	 */
+	void onEvent(event::Event& ioEvent);
+
 private:
 	/// Native window pointer.
 	void* m_window{};
@@ -79,9 +110,23 @@ private:
 	/// Vulkan window setup done flag.
 	bool m_windowSetupDone = false;
 	/// Setup Vulkan window.
-	void setupVulkanWindow(int width, int height);
+	void setupVulkanWindow(int iWidth, int iHeight);
 	/// Cleanup Vulkan window.
 	void cleanupVulkanWindow();
+	/// Define the Event Callback function.
+	void setCallbacks();
+	/**
+	 * @brief Window's data.
+	 */
+	struct WindowData {
+		/// Window's size.
+		math::vec2ui size;
+		/// Event Call back.
+		event_callback eventCallback;
+	};
+
+	/// The Window's data.
+	WindowData m_windowData{};
 };
 
 }// namespace mvi::core

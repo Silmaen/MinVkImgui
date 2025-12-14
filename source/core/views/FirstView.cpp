@@ -14,7 +14,7 @@
 namespace mvi::core::views {
 
 FirstView::FirstView(bool& iShowDemoWindow, bool& iShowAnotherWindow, std::array<float, 4>& iClearColor)
-	: m_show_demo_window(iShowDemoWindow), m_show_another_window(iShowAnotherWindow), m_clear_color(iClearColor) {}
+	: m_showDemoWindow(iShowDemoWindow), m_showAnotherWindow(iShowAnotherWindow), m_clearColor(iClearColor) {}
 
 FirstView::~FirstView() = default;
 
@@ -24,12 +24,12 @@ void FirstView::onUpdate() {
 	ImGui::Begin("Hello, world!");// Create a window called "Hello, world!" and append into it.
 
 	ImGui::Text("This is some useful text.");// Display some text (you can use a format strings too)
-	ImGui::Checkbox("Demo Window", &m_show_demo_window);// Edit bools storing our window open/close state
-	ImGui::Checkbox("Another Window", &m_show_another_window);
+	ImGui::Checkbox("Demo Window", &m_showDemoWindow);// Edit bools storing our window open/close state
+	ImGui::Checkbox("Another Window", &m_showAnotherWindow);
 
 	ImGui::SliderFloat("float", &m_float, 0.0f, 1.0f);// Edit 1 float using a slider from 0.0f to 1.0f
 	ImGui::ColorEdit3("clear color",
-					  reinterpret_cast<float*>(&m_clear_color));// Edit 3 floats representing a color
+					  reinterpret_cast<float*>(&m_clearColor));// Edit 3 floats representing a color
 
 	if (ImGui::Button("Button"))// Buttons return true when clicked (most widgets return true when edited/activated)
 		m_counter++;

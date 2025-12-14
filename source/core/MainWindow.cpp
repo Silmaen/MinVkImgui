@@ -24,6 +24,9 @@
 // memory fonts...
 #include "core/fonts/Roboto-Bold.embed"
 #include "core/fonts/Roboto-Italic.embed"
+#include "event/AppEvent.h"
+#include "event/KeyEvent.h"
+#include "event/MouseEvent.h"
 //#include "core/fonts/Roboto-Regular.embed"// not used here
 
 namespace mvi::core {
@@ -135,9 +138,87 @@ void MainWindow::init() {
 		return;
 
 	setTheme({});
+	setCallbacks();
 }
 
-void MainWindow::setupVulkanWindow(const int width, const int height) {
+void MainWindow::setCallbacks() {
+	auto* window = static_cast<GLFWwindow*>(m_window);
+	glfwSetWindowUserPointer(window, &m_windowData);
+	glfwSetWindowSizeCallback(window, [](GLFWwindow* iWindow, const int iWidth, const int iHeight) -> void {
+		auto* const data = static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow));
+		data->size.x() = static_cast<uint32_t>(iWidth);
+		data->size.y() = static_cast<uint32_t>(iHeight);
+
+		event::WindowResizeEvent event(data->size);
+		data->eventCallback(event);
+	});
+	glfwSetWindowCloseCallback(window, [](GLFWwindow* iWindow) -> void {
+		event::WindowCloseEvent event;
+		static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+	});
+	glfwSetKeyCallback(
+			window,
+			[](GLFWwindow* iWindow, const int iKey, [[maybe_unused]] int iScancode, const int iAction,
+			   [[maybe_unused]] int iMods) -> void {
+				const auto cKey = static_cast<KeyCode>(iKey);
+				switch (iAction) {
+					case GLFW_PRESS:
+						{
+							event::KeyPressedEvent event(cKey, 0u);
+							static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+							break;
+						}
+					case GLFW_RELEASE:
+						{
+							event::KeyReleasedEvent event(cKey);
+							static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+							break;
+						}
+					case GLFW_REPEAT:
+						{
+							event::KeyPressedEvent event(cKey, 1u);
+							static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+							break;
+						}
+					default:
+						break;
+				}
+			});
+	glfwSetCharCallback(window, [](GLFWwindow* iWindow, const unsigned int iKeycode) -> void {
+		event::KeyTypedEvent event(static_cast<KeyCode>(iKeycode));
+		static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+	});
+	glfwSetMouseButtonCallback(
+			window,
+			[](GLFWwindow* iWindow, const int iButton, const int iAction, [[maybe_unused]] const int iMods) -> void {
+				switch (iAction) {
+					case GLFW_PRESS:
+						{
+							event::MouseButtonPressedEvent event(static_cast<MouseCode>(iButton));
+							static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+							break;
+						}
+					case GLFW_RELEASE:
+						{
+							event::MouseButtonReleasedEvent event(static_cast<MouseCode>(iButton));
+							static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+							break;
+						}
+					default:
+						break;
+				}
+			});
+	glfwSetScrollCallback(window, [](GLFWwindow* iWindow, const double iXOffset, const double iYOffset) -> void {
+		event::MouseScrolledEvent event(static_cast<float>(iXOffset), static_cast<float>(iYOffset));
+		static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+	});
+	glfwSetCursorPosCallback(window, [](GLFWwindow* iWindow, const double iX, const double iY) -> void {
+		event::MouseMovedEvent event(static_cast<float>(iX), static_cast<float>(iY));
+		static_cast<WindowData*>(glfwGetWindowUserPointer(iWindow))->eventCallback(event);
+	});
+}
+
+void MainWindow::setupVulkanWindow(const int iWidth, const int iHeight) {
 	const auto vkData = g_vkContext->getVkData();
 
 	// Check for WSI support
@@ -172,8 +253,8 @@ void MainWindow::setupVulkanWindow(const int width, const int height) {
 	// Create SwapChain, RenderPass, Framebuffer, etc.
 	assert(m_minImageCount >= 2);
 	ImGui_ImplVulkanH_CreateOrResizeWindow(vkData.instance, vkData.physicalDevice, vkData.device,
-										   g_MainWindowData.get(), vkData.queueFamily, vkData.allocator, width, height,
-										   m_minImageCount, 0);
+										   g_MainWindowData.get(), vkData.queueFamily, vkData.allocator, iWidth,
+										   iHeight, m_minImageCount, 0);
 	m_windowSetupDone = true;
 }
 
@@ -396,6 +477,64 @@ void MainWindow::setTheme(const Theme& iTheme) {
 	if ((ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0) {
 		style.WindowRounding = 0.0f;
 		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+	}
+}
+
+auto MainWindow::isKeyPressed(const KeyCode& iKeycode) const -> bool {
+	auto* window = static_cast<GLFWwindow*>(m_window);
+	const int state = glfwGetKey(window, static_cast<int>(iKeycode));
+	return state == GLFW_PRESS || state == GLFW_REPEAT;
+}
+
+auto MainWindow::getModifiers() const -> Modifiers {
+	return Modifiers{
+			.ctrl = isKeyPressed(KeyCode::LeftControl) || isKeyPressed(KeyCode::RightControl),
+			.shift = isKeyPressed(KeyCode::LeftShift) || isKeyPressed(KeyCode::RightShift),
+			.alt = isKeyPressed(KeyCode::LeftAlt) || isKeyPressed(KeyCode::RightAlt),
+			.altGr = isKeyPressed(KeyCode::RightAlt),
+	};
+}
+
+void MainWindow::onEvent(event::Event& ioEvent) {
+	// Send event to ImGui
+	std::unordered_map<event::Type, int> keyMap = {
+			{event::Type::KeyPressed, GLFW_PRESS},
+			{event::Type::KeyReleased, GLFW_RELEASE},
+			{event::Type::KeyTyped, GLFW_REPEAT},
+	};
+	if (ioEvent.isInCategory(event::Category::Keyboard)) {
+		ImGui_ImplGlfw_KeyCallback(static_cast<GLFWwindow*>(m_window),
+								   static_cast<int>(dynamic_cast<event::KeyEvent&>(ioEvent).getKeyCode()), 0,
+								   keyMap[ioEvent.getType()], 0);
+		ioEvent.handled |= true;
+		return;
+	}
+	std::unordered_map<event::Type, int> mouseButtonMap = {
+			{event::Type::MouseButtonPressed, GLFW_PRESS},
+			{event::Type::MouseButtonReleased, GLFW_RELEASE},
+	};
+	if (ioEvent.isInCategory(event::Category::Mouse)) {
+		if (ioEvent.getType() == event::Type::MouseMoved) {
+			const auto& e = dynamic_cast<event::MouseMovedEvent&>(ioEvent);
+			ImGui_ImplGlfw_CursorPosCallback(static_cast<GLFWwindow*>(m_window), static_cast<double>(e.getX()),
+											 static_cast<double>(e.getY()));
+			ioEvent.handled |= true;
+			return;
+		}
+		if (ioEvent.getType() == event::Type::MouseScrolled) {
+			const auto& e = dynamic_cast<event::MouseScrolledEvent&>(ioEvent);
+			ImGui_ImplGlfw_ScrollCallback(static_cast<GLFWwindow*>(m_window), static_cast<double>(e.getXOff()),
+										  static_cast<double>(e.getYOff()));
+			ioEvent.handled |= true;
+			return;
+		}
+		if (mouseButtonMap.contains(ioEvent.getType())) {
+			const auto& e = dynamic_cast<event::MouseButtonEvent&>(ioEvent);
+			ImGui_ImplGlfw_MouseButtonCallback(static_cast<GLFWwindow*>(m_window), static_cast<int>(e.getMouseButton()),
+											   mouseButtonMap[ioEvent.getType()], 0);
+			ioEvent.handled |= true;
+			return;
+		}
 	}
 }
 

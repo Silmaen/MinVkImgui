@@ -29,6 +29,6 @@ namespace mvi {
 #endif
 static const std::string MVI_VERSION = std::format("{}.{}.{}", MVI_MAJOR, MVI_MINOR, MVI_PATCH);
 static const std::string MVI_AUTHOR_STR = std::format("{}", MVI_AUTHOR);
-static const std::string MVI_APP = "Événement Loto";
+static const std::string MVI_APP = "Minimal Vulkan Gui";
 
 }// namespace mvi

@@ -15,7 +15,7 @@ namespace mvi::core::views {
 /**
  * @brief Class DemoView.
  */
-class DemoView : public View {
+class DemoView final : public View {
 public:
 	/**
 	 * @brief Default constructor.
@@ -34,6 +34,12 @@ public:
 	 * @brief The update function to implement in derived classes.
 	 */
 	void onUpdate() override;
+
+	/**
+	 * @brief Get the view name.
+	 * @return The view name.
+	 */
+	[[nodiscard]] auto getName() const -> std::string override { return "demo_view"; }
 
 private:
 };
